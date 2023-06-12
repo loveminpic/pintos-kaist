@@ -56,7 +56,6 @@ process_create_initd (const char *file_name) {
 	char *save_ptr;
 	strtok_r(file_name, " ", &save_ptr);
 
-	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
@@ -115,7 +114,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	 *    TODO: NEWPAGE. */
 	newpage = palloc_get_page(PAL_USER);
 	if (newpage == NULL)
-		return false;
+		return false;  
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
@@ -127,7 +126,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: if fail to insert page, do error handling. */
-		return false;
+    	return false;
 	}
 	return true;
 }
@@ -148,7 +147,7 @@ __do_fork (void *aux) {
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
-	if_.R.rax = 0;
+  	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -164,30 +163,26 @@ __do_fork (void *aux) {
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
-
 	/* TODO: Your code goes here.
 	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-
-		int cnt = 2;
-		struct file **table = parent->fdt;
-		while (cnt < 128) {
-			if (table[cnt]) {
-				current->fdt[cnt] = file_duplicate(table[cnt]);
-			} else {
-				current->fdt[cnt] = NULL;
-			}
-			cnt++;
+	int cnt = 2;
+	struct file **table = parent->fdt;
+	while (cnt < 128) {
+		if (table[cnt]) {
+			current->fdt[cnt] = file_duplicate(table[cnt]);
+		} else {
+			current->fdt[cnt] = NULL;
 		}
-
+		cnt++;
+	}
 	current->next_fd = parent->next_fd;
 
-	sema_up(&parent->sema_fork);
+ 	sema_up(&parent->sema_fork);
 
-	process_init ();
-
+  	process_init ();
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret (&if_);
@@ -222,9 +217,6 @@ process_exec (void *f_name) {
 	if (!success)
 		return -1;
 
-	// hex_dump(_if.rsp, _if.rsp, KERN_BASE - _if.rsp, true);
-	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -245,7 +237,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	
+
 	struct thread *child = get_child_process(child_tid);
 
 	if (child == NULL)
@@ -262,12 +254,12 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	struct file **table = curr->fdt;
+  	struct file **table = curr->fdt;
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
+  
 	if (curr->running_file)
 		file_close(curr->running_file);
 
@@ -412,7 +404,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	}
 
 	/* Open executable file. */
-	file = filesys_open (argv[0]);
+  	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -492,41 +484,39 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-
+  
 	argument_stack(argv, cnt, &if_->rsp);
-	if_->R.rdi = cnt; 			// argc
-	if_->R.rsi = if_->rsp + 8; 	// argv
+	if_->R.rdi = cnt;
+	if_->R.rsi = if_->rsp + 8;
 
 	success = true;
 
-	 // * 추가
+ 	 // * 추가
 	t->running_file = file;
 	file_deny_write(file);
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	// file_close (file);
 	return success;
 }
 
 struct thread *get_child_process(int pid) {
-	struct thread *cur = thread_current();
-	struct list *child_list = &cur->children_list;
-	struct list_elem *cur_child = list_begin(child_list);
+  struct thread *cur = thread_current();
+  struct list *child_list = &cur->children_list;
+  struct list_elem *cur_child = list_begin(child_list);
 
-	while (cur_child != list_end(child_list)) {
-		struct thread *cur_t = list_entry(cur_child, struct thread, child_elem);
-		if (cur_t->tid == pid) {
-			return cur_t;
-		}
-		cur_child = list_next(cur_child);
-	}
-	return NULL;
+  while (cur_child != list_end(child_list)) {
+    struct thread *cur_t = list_entry(cur_child, struct thread, child_elem);
+    if (cur_t->tid == pid) {
+      return cur_t;
+    }
+    cur_child = list_next(cur_child);
+  }
+  return NULL;
 }
 
-/* 유저 스택에 프로그램 이름과 인자들을 저장하는 함수 */
 void argument_stack(char **parse, int count, void **esp) {
-
+  
   char *argv_address[count];
   uint8_t size = 0;
 
@@ -559,6 +549,7 @@ void argument_stack(char **parse, int count, void **esp) {
 	**(char **)esp = 0;
 
 }
+
 
 /* Checks whether PHDR describes a valid, loadable segment in
  * FILE and returns true if so, false otherwise. */

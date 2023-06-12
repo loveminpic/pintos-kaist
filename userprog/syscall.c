@@ -112,7 +112,7 @@ exit(int status) {
 	thread_exit();	
 }
 
-tid_t
+int
 fork (const char *thread_name){
 	check_address(thread_name);
 	return process_fork(thread_name, &thread_current()->ptf);
@@ -255,5 +255,5 @@ void
 check_address(void *addr) {
 	struct thread *cur = thread_current();
 	if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
-	exit(-1);
+		exit(-1);
 }

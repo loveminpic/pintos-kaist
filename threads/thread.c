@@ -249,7 +249,6 @@ thread_sleep(int64_t ticks) {
 	struct thread *t = thread_current();
 	enum intr_level old_level;
 
-	ASSERT(!intr_context());
 	old_level = intr_disable();
 	if (t != idle_thread) {
 		t->time_to_wakeup = ticks;
