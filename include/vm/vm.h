@@ -2,6 +2,7 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "hash.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -46,13 +47,21 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
+	bool is_loaded; 		/* 물리 메모리의 탐재 여부를 알려주는 플래그*/
+	struct file* v_file;		/* 가상주소와 맵핑된 파일*/
+	size_t offset;			/* 읽어야 할 파일 오프셋*/
+	size_t read_bytes; 		/* 가상페이지에 쓰여져 있는 데이터 크기 */
+	size_t zero_bytes; 		/* 0으로 채울 남는 페이지의 바이트 */
 
+	struct hash_elem hash_elem;  /* 해시테이블 Element */
+	
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
 		struct uninit_page uninit;
 		struct anon_page anon;
 		struct file_page file;
+	
 #ifdef EFILESYS
 		struct page_cache page_cache;
 #endif
@@ -85,6 +94,8 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
 struct supplemental_page_table {
+	struct hash spt_hash_table;
+
 };
 
 #include "threads/thread.h"
@@ -108,5 +119,7 @@ bool vm_alloc_page_with_initializer (enum vm_type type, void *upage,
 void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
-
+unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
+bool page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED);
 #endif  /* VM_VM_H */

@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "mmu.h": "c",
+        "interrupt.h": "c",
+        "flags.h": "c",
+        "thread.h": "c",
+        "malloc.h": "c",
+        "vm.h": "c"
+    }
+}
