@@ -121,7 +121,14 @@ static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
-	
+	frame = (struct frame *)malloc(sizeof(struct frame));
+	frame->kva = palloc_get_page(PAL_USER);
+
+	if (frame->kva == NULL) {
+		PANIC("todo: later check! minji - no space for it");
+		/* 나중에 물리 메모리 공간이 없을 경우, swap!! 해야함.*/
+	}
+
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -162,7 +169,13 @@ bool
 vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function */
+	/* va 를 가지고 페이지를 가져오라는거겠지??*/
+	struct thread *curr = thread_current ();
 
+	page = spt_find_page(&curr->spt, va);
+	if(page == NULL){
+		return NULL;
+	}
 	return vm_do_claim_page (page);
 }
 
@@ -170,13 +183,19 @@ vm_claim_page (void *va UNUSED) {
 static bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
-
+	struct thread *curr = thread_current ();
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	/* 이미 vm_get_frame 에서 페이지 할당 못받으면 패닉 시키니까 여기서 따로 처리 안함
+	우선 무조건 반환 받았다고 가정 */
 
+	bool check = pml4_set_page(&curr->pml4, page, frame->kva, page->writable);
+	if(!check) {
+		return false;
+	}
 	return swap_in (page, frame->kva);
 }
 

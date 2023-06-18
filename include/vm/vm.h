@@ -45,7 +45,8 @@ struct page {
 	const struct page_operations *operations;
 	void *va;              /* Address in terms of user space */
 	struct frame *frame;   /* Back reference for frame */
-
+	bool writable;
+	
 	/* Your implementation */
 	bool is_loaded; 		/* 물리 메모리의 탐재 여부를 알려주는 플래그*/
 	struct file* v_file;		/* 가상주소와 맵핑된 파일*/
