@@ -93,9 +93,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			close(f->R.rdi);
 			break;
-		default:
-			exit(-1);
-			break;
+		// default:
+		// 	exit(-1);
+		// 	break;
 	}
 }
 
@@ -116,7 +116,7 @@ int
 fork (const char *thread_name){
 	check_address(thread_name);
 	return process_fork(thread_name, &thread_current()->ptf);
-}
+} 
 
 int
 exec (const char *file_name) {

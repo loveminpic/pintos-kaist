@@ -397,13 +397,14 @@ thread_yield (void) {
 
 void
 thread_test_preemption (void) {
+	// /* 만약 ready_list 가 비어있지 않고, 현재 Thread가 idle 경우, thread_yield()를 실행하게 되는데, 사실 idle_thread는 yield하는게 불필요함.  */
+	if (thread_current() == idle_thread)
+        return;
 	if (!list_empty(&ready_list)) {
 		if (thread_compare_priority(&list_entry(list_front(&ready_list), struct thread, elem)->elem, &thread_current()->elem, 0)) {
 			thread_yield();
 		}
 	}
-	// if (!list_empty (&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
-	// 	thread_yield();
 }
 
 bool

@@ -116,7 +116,6 @@ sema_up (struct semaphore *sema) {
 					struct thread, elem));
 	}
 	sema->value++;
-	if (!intr_context()) {}
 	thread_test_preemption();
 	intr_set_level (old_level);
 }

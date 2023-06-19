@@ -16,4 +16,13 @@ void argument_stack(char **parse, int count, void **esp);
 /* System Call */
 struct thread *get_child_process(int pid);
 
+
+struct lazy_load_arg {
+    struct file *file;
+    off_t ofs;
+    uint32_t read_bytes;
+    uint32_t zero_bytes;
+};
+
+
 #endif /* userprog/process.h */

@@ -5,6 +5,14 @@
         "flags.h": "c",
         "thread.h": "c",
         "malloc.h": "c",
-        "vm.h": "c"
+        "vm.h": "c",
+        "process.h": "c",
+        "main.h": "c",
+        "*.inc": "c",
+        "random.h": "c",
+        "filesys.h": "c",
+        "palloc.h": "c",
+        "gdt.h": "c",
+        "syscall.h": "c"
     }
 }

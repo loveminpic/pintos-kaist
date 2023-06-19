@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "threads/vaddr.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -49,12 +50,23 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 	struct supplemental_page_table *spt = &thread_current ()->spt;
 
 	/* Check wheter the upage is already occupied or not. */
+	/* spt 에 할당 안되어 있음! 여기서 upage는 가상 주소 공간이고, 여기다 페이지 할당 받고 싶은거임*/
 	if (spt_find_page (spt, upage) == NULL) {
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
+		
+		struct page *page = (struct page *)malloc(sizeof(struct page));
 
+		if(VM_TYPE(type) == VM_ANON){
+			uninit_new(page, upage, init, type, aux, anon_initializer);
+		}else if (VM_TYPE(type) == VM_FILE){
+			uninit_new(page, upage, init, type, aux, file_backed_initializer);
+		}
+
+		page->writable = writable;
 		/* TODO: Insert the page into the spt. */
+		return spt_insert_page(spt, page);
 	}
 err:
 	return false;
@@ -65,27 +77,31 @@ struct page *
 spt_find_page ( struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
-	struct hash_elem *elem = hash_find(spt,va);
-	if (elem == NULL){
-		return NULL;
-	}
+	page = (struct page *)malloc(sizeof(struct page));
+	struct hash_elem *e;
 
-	page = hash_entry (elem, struct page, hash_elem);
-	return page;
+	// va에 해당하는 hash_elem 찾기
+	page->va = pg_round_down(va); // page의 시작 주소 할당
+	e = hash_find(&spt->spt_hash_table, &page->hash_elem);
+	free(page);
+	
+	// 있으면 e에 해당하는 페이지 반환
+	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
 }
 
 /* Insert PAGE into spt with validation. */
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
-	int succ = false;
-	/* TODO: Fill this function. */
+	// int succ = false;
+	// /* TODO: Fill this function. */
 	
-	struct hesh_elem *check = hash_insert(&spt->spt_hash_table, &page->hash_elem);
-	if(check == NULL){
-		succ = true;
-	}
-	return succ;
+	// struct hesh_elem *check = hash_insert(&spt->spt_hash_table, &page->hash_elem);
+	// if(check == NULL){
+	// 	succ = true;
+	// }
+	// return succ;
+	return hash_insert(&spt->spt_hash_table, &page->hash_elem) == NULL ? true : false;
 }
 
 void
@@ -118,17 +134,17 @@ vm_evict_frame (void) {
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
 static struct frame *
-vm_get_frame (void) {
-	struct frame *frame = NULL;
+vm_get_frame (void) { 
 	/* TODO: Fill this function. */
-	frame = (struct frame *)malloc(sizeof(struct frame));
+	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
 	frame->kva = palloc_get_page(PAL_USER);
-
+	
 	if (frame->kva == NULL) {
 		PANIC("todo: later check! minji - no space for it");
 		/* 나중에 물리 메모리 공간이 없을 경우, swap!! 해야함.*/
 	}
 
+	frame->page = NULL;
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -147,11 +163,15 @@ vm_handle_wp (struct page *page UNUSED) {
 /* Return true on success */
 bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
-		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
+	bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
+
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
-	struct page *page = NULL;
+	struct page *page = spt_find_page(spt, addr);
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	if (page == NULL) {
+		return false ; 
+	}
 
 	return vm_do_claim_page (page);
 }
@@ -192,7 +212,7 @@ vm_do_claim_page (struct page *page) {
 	/* 이미 vm_get_frame 에서 페이지 할당 못받으면 패닉 시키니까 여기서 따로 처리 안함
 	우선 무조건 반환 받았다고 가정 */
 
-	bool check = pml4_set_page(&curr->pml4, page, frame->kva, page->writable);
+	bool check = pml4_set_page(curr->pml4, page->va, frame->kva, page->writable);
 	if(!check) {
 		return false;
 	}
