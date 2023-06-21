@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -226,18 +227,69 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 }
 
 /* Copy supplemental page table from src to dst */
+/* 깊은 복사가 이루어져야 해서, 각각의 데이터를 다 하나씩 복사해줘야 함*/
+/* 타입에 따라, 초기화가 다르다는 것을 기억 해야함 */
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
-		struct supplemental_page_table *src UNUSED) {
-}
+	struct supplemental_page_table *src UNUSED) {
+		struct hash_iterator i;
+		hash_first(&i, &src->spt_hash_table);
+		while(hash_next(&i)){
+			/* 페이지 찾고 */
+			struct page *src_page = hash_entry(hash_cur(&i), struct page, hash_elem);
+			enum vm_type type = src_page->operations->type;
+			void *upage = src_page->va;
+			bool writable = src_page->writable;
+			enum vm_type real_type = page_get_type(src_page);
+			/* 만약에 type 이 VM_UNINIT 이면, 초기화 해줘야함. */
 
+			if(type == VM_UNINIT) {
+				vm_initializer *init = src_page->uninit.init;
+				void *aux = src_page->uninit.aux;
+				vm_alloc_page_with_initializer(real_type, upage, writable, init, aux);
+				continue;
+			}
+			if (type == VM_FILE){
+				struct lazy_load_arg *arg = malloc(sizeof(struct lazy_load_arg));
+				arg->file = src_page->file.file;
+				arg->ofs = src_page->file.ofs;
+				arg->read_bytes = src_page->file.read_bytes;
+				arg->zero_bytes = src_page->file.zero_bytes;
+				if (!vm_alloc_page_with_initializer(type, upage, writable, NULL, arg))
+					return false;
+				struct page *file_page = spt_find_page(dst, upage);
+				file_backed_initializer(file_page, type, NULL);
+				file_page->frame = src_page->frame;
+				pml4_set_page(thread_current()->pml4, file_page->va, src_page->frame->kva, src_page->writable);
+				continue;
+			}
+				/* 3) type이 anon이면 */
+			if (!vm_alloc_page(type, upage, writable)) // uninit page 생성 & 초기화
+				return false;						   // init이랑 aux는 Lazy Loading에 필요. 지금 만드는 페이지는 기다리지 않고 바로 내용을 넣어줄 것이므로 필요 없음
+
+			// vm_claim_page으로 요청해서 매핑 & 페이지 타입에 맞게 초기화
+			if (!vm_claim_page(upage))
+				return false;
+
+			// 매핑된 프레임에 내용 로딩
+			struct page *dst_page = spt_find_page(dst, upage);
+			memcpy(dst_page->frame->kva, src_page->frame->kva, PGSIZE);
+			}
+		return true;
+	}
 /* Free the resource hold by the supplemental page table */
 void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+	hash_clear(&spt->spt_hash_table, hash_page_destroy); // 해시 테이블의 모든 요소를 제거
 }
-
+void hash_page_destroy(struct hash_elem *e, void *aux)
+{
+	struct page *page = hash_entry(e, struct page, hash_elem);
+	destroy(page);
+	free(page);
+}
 /* Returns a hash value for page p. */
 unsigned
 page_hash (const struct hash_elem *p_, void *aux UNUSED) {
