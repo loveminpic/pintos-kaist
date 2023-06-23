@@ -518,39 +518,37 @@ struct thread *get_child_process(int pid) {
   return NULL;
 }
 
-void argument_stack(char **parse, int count, void **esp) {
-  
-  char *argv_address[count];
-  uint8_t size = 0;
-
-	// * argv[i] 문자열
-	for (int i = count - 1; -1 < i; i--) {
-		*esp -= (strlen(parse[i]) + 1);
-		memcpy(*esp, parse[i], strlen(parse[i]) + 1);
-		size += strlen(parse[i]) + 1;
-		argv_address[i] = *esp;
+void argument_stack(char **argv, int argc, void **rsp)
+{
+	// command 오른쪽 단어부터 스택에 삽입
+	for (int i = argc - 1; i >= 0; i--)
+	{
+		// 입력 받은 인자 1개 또한 스택에 넣어주는 것이므로 오른쪽 글자부터 넣어준다.
+		for (int j = strlen(argv[i]); j >= 0; j--)
+		{
+			(*rsp)--;					 // 스택 주소 감소
+			**(char **)rsp = argv[i][j]; // 주소에 문자 저장
+		}
+		argv[i] = *(char **)rsp; // 인자가 스택에 저장되어있는 주소를 배열에 저장
 	}
 
-	if (size % 8) {
-		for (int i = (8 - (size % 8)); 0 < i; i--) {
-			*esp -= 1;
-		**(char **)esp = 0;
-	}
-  }
-
-  *esp -= 8;
-  **(char **)esp = 0;
-
-  // * argv[i] 주소
-	for (int i = count - 1; -1 < i; i--) {
-		*esp = *esp - 8;
-		memcpy(*esp, &argv_address[i], strlen(&argv_address[i]));
+	while ((int)(*rsp) % 8 != 0)
+	{			  // 스택 포인터가 8의 배수가 되도록
+		(*rsp)--; // 스택 포인터를 1바이트씩 이동
+		**(uint8_t **)rsp = 0;
 	}
 
-	// * return address(fake)
-	*esp = *esp - 8;
-	**(char **)esp = 0;
+	for (int i = argc; i >= 0; i--)
+	{
+		(*rsp) -= 8;
+		if (i == argc) // argument의 끝을 나타내는 공백 추가
+			**(char ***)rsp = 0;
+		else // 각각의 argument가 스택에 저장되어있는 주소 저장
+			**(char ***)rsp = argv[i];
+	}
 
+	(*rsp) -= 8; // return 값의 주소인 fake address 저장
+	**(void ***)rsp = 0;
 }
 
 

@@ -11,7 +11,7 @@ void process_exit (void);
 void process_activate (struct thread *next);
 
 /* Argument Passing */
-void argument_stack(char **parse, int count, void **esp);
+void argument_stack(char **argv, int argc, void **rsp);
 
 /* System Call */
 struct thread *get_child_process(int pid);
