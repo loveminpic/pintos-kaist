@@ -154,6 +154,7 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	vm_alloc_page(VM_ANON | VM_MARKER_0, pg_round_down(addr), 1);
 }
 
 /* Handle the fault on write_protected page */
@@ -165,16 +166,29 @@ vm_handle_wp (struct page *page UNUSED) {
 bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
-
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
-	struct page *page = spt_find_page(spt, addr);
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
-	if (page == NULL) {
-		return false ; 
-	}
+	struct page *page = NULL;
 
-	return vm_do_claim_page (page);
+	if(not_present){
+		uintptr_t *current_rsp = f->rsp;
+		/*만약 커널모드에서 rsp 를 불러오면, 커널 스택포인터를 가리키기 때문에, 현재 thread에서 가져오는게 맞음*/
+		if(!user){
+			current_rsp = thread_current()->tf.rsp;
+		}
+		//USER_STACK - (1 << 20) = 스택 최대 크기 = 1MB
+		if (USER_STACK - (1 << 20) <= current_rsp - 8 && current_rsp-8 <= addr && addr <= USER_STACK){
+			vm_stack_growth(addr);
+		}
+	 	page = spt_find_page(spt, addr);
+		if(page == NULL) {
+			return false;
+		}
+		if (write && (!page->writable)) { //권한이 없는데 쓰려고 하는 경우
+			return false;
+		}
+		return vm_do_claim_page(page);
+	}
+	return false;
 }
 
 /* Free the page.
